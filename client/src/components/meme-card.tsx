@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { Download, Eye, Edit2, Trash2, Save, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ interface MemeCardProps {
 }
 
 export default function MemeCard({ meme }: MemeCardProps) {
+  const [location] = useLocation();
   const [isDownloading, setIsDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(meme.title);
@@ -24,10 +26,9 @@ export default function MemeCard({ meme }: MemeCardProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Check admin status
-  const { data: adminStatus } = useQuery<{ isAdmin: boolean }>({
-    queryKey: ["/api/admin/status"],
-  });
+  // Only show admin controls if on /admin-dashboard and isAdmin is true
+  const isAdmin = typeof window !== "undefined" && localStorage.getItem("isAdmin") === "true";
+  const showAdminControls = isAdmin && location === "/admin-dashboard";
 
   // Update meme mutation
   const updateMutation = useMutation({
@@ -44,11 +45,20 @@ export default function MemeCard({ meme }: MemeCardProps) {
       setIsEditing(false);
     },
     onError: (error: Error) => {
-      toast({
-        title: "Update failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (error.message.includes('404')) {
+        toast({
+          title: "Meme not found",
+          description: "This meme no longer exists. Refreshing list...",
+          variant: "destructive",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/memes"] });
+      } else {
+        toast({
+          title: "Update failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -66,11 +76,20 @@ export default function MemeCard({ meme }: MemeCardProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/memes"] });
     },
     onError: (error: Error) => {
-      toast({
-        title: "Delete failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      if (error.message.includes('404')) {
+        toast({
+          title: "Meme not found",
+          description: "This meme was already deleted. Refreshing list...",
+          variant: "destructive",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/memes"] });
+      } else {
+        toast({
+          title: "Delete failed",
+          description: error.message,
+          variant: "destructive",
+        });
+      }
     },
   });
 
@@ -149,57 +168,52 @@ export default function MemeCard({ meme }: MemeCardProps) {
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
         
-        {/* Admin controls only */}
-        <div className="absolute top-2 right-2 flex flex-col gap-1">
-          
-          {/* Admin controls */}
-          {adminStatus?.isAdmin && (
-            <>
-              <Button
-                size="sm"
-                onClick={() => setIsEditing(true)}
-                disabled={isEditing}
-                className="w-8 h-8 bg-black/50 hover:bg-secondary text-white rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                data-testid={`button-edit-${meme.id}`}
-              >
-                <Edit2 size={12} />
-              </Button>
-              
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    size="sm"
-                    className="w-8 h-8 bg-black/50 hover:bg-destructive text-white rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-                    data-testid={`button-delete-${meme.id}`}
+        {/* Admin controls only on admin dashboard */}
+        {showAdminControls && (
+          <div className="absolute top-2 right-2 flex flex-col gap-1">
+            <Button
+              size="sm"
+              onClick={() => setIsEditing(true)}
+              disabled={isEditing}
+              className="w-8 h-8 bg-black/50 hover:bg-secondary text-white rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              data-testid={`button-edit-${meme.id}`}
+            >
+              <Edit2 size={12} />
+            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  size="sm"
+                  className="w-8 h-8 bg-black/50 hover:bg-destructive text-white rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                  data-testid={`button-delete-${meme.id}`}
+                >
+                  <Trash2 size={12} />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="bg-card border-border">
+                <AlertDialogHeader>
+                  <AlertDialogTitle className="text-foreground">Delete Meme</AlertDialogTitle>
+                  <AlertDialogDescription className="text-muted-foreground">
+                    Are you sure you want to delete "{meme.title}"? This action cannot be undone and will permanently remove the meme from the database.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel className="border-border text-foreground hover:bg-muted">
+                    Cancel
+                  </AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={() => deleteMutation.mutate()}
+                    disabled={deleteMutation.isPending}
+                    className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    data-testid={`button-confirm-delete-${meme.id}`}
                   >
-                    <Trash2 size={12} />
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent className="bg-card border-border">
-                  <AlertDialogHeader>
-                    <AlertDialogTitle className="text-foreground">Delete Meme</AlertDialogTitle>
-                    <AlertDialogDescription className="text-muted-foreground">
-                      Are you sure you want to delete "{meme.title}"? This action cannot be undone and will permanently remove the meme from the database.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel className="border-border text-foreground hover:bg-muted">
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={() => deleteMutation.mutate()}
-                      disabled={deleteMutation.isPending}
-                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
-                      data-testid={`button-confirm-delete-${meme.id}`}
-                    >
-                      {deleteMutation.isPending ? "Deleting..." : "Delete"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </>
-          )}
-        </div>
+                    {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
       </div>
       
       <div className="p-4">

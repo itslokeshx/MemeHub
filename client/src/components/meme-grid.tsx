@@ -107,8 +107,8 @@ export default function MemeGrid({ searchQuery = "" }: MemeGridProps) {
         className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
         data-testid="meme-grid"
       >
-        {memes.map((meme) => (
-          <MemeCard key={meme.id} meme={meme} />
+        {memes.map((meme, idx) => (
+          <MemeCard key={meme.id || idx} meme={meme} />
         ))}
       </div>
 

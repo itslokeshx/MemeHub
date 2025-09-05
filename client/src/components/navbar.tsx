@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
 import { Search, Plus, Laugh } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,15 @@ interface NavbarProps {
 export default function Navbar({ onSearch, searchValue = "" }: NavbarProps) {
   const [search, setSearch] = useState(searchValue);
   const [location] = useLocation();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    setIsAdmin(localStorage.getItem("isAdmin") === "true");
+    // Listen for login/logout changes in other tabs
+    const handler = () => setIsAdmin(localStorage.getItem("isAdmin") === "true");
+    window.addEventListener("storage", handler);
+    return () => window.removeEventListener("storage", handler);
+  }, []);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -58,6 +67,29 @@ export default function Navbar({ onSearch, searchValue = "" }: NavbarProps) {
               <span className="hidden sm:inline">Upload Meme</span>
             </Button>
           </Link>
+          {/* Admin Login/Logout Button */}
+          {isAdmin ? (
+            <Button
+              className="ml-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-medium transition-colors duration-200 flex items-center space-x-2 px-4 py-2 sm:px-4 sm:py-2 w-full sm:w-auto mt-2 sm:mt-0"
+              data-testid="button-admin-logout"
+              onClick={() => {
+                localStorage.removeItem("isAdmin");
+                setIsAdmin(false);
+                window.location.reload();
+              }}
+            >
+              <span>Logout</span>
+            </Button>
+          ) : (
+            <Link href="/admin-login" className="w-full sm:w-auto mt-2 sm:mt-0">
+              <Button
+                className="ml-2 bg-input border border-border text-foreground font-medium transition-colors duration-200 flex items-center space-x-2 shadow-none hover:bg-input/80 px-4 py-2 sm:px-4 sm:py-2 w-full sm:w-auto"
+                data-testid="button-admin-login"
+              >
+                <span>Admin Login</span>
+              </Button>
+            </Link>
+          )}
         </div>
       </div>
     </nav>
