@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link, useLocation } from "wouter";
-import { Search, Plus, Laugh } from "lucide-react";
+import { Search, Plus, Laugh, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 
@@ -58,7 +58,7 @@ export default function Navbar({ onSearch, searchValue = "" }: NavbarProps) {
           )}
 
           {/* Upload Button */}
-          <Link href="/upload">
+          <Link href="/upload" className="mr-2 sm:mr-0">
             <Button 
               className="bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors duration-200 flex items-center space-x-2"
               data-testid="button-upload"
@@ -83,10 +83,12 @@ export default function Navbar({ onSearch, searchValue = "" }: NavbarProps) {
           ) : (
             <Link href="/admin-login" className="w-full sm:w-auto mt-2 sm:mt-0">
               <Button
-                className="ml-2 bg-input border border-border text-foreground font-medium transition-colors duration-200 flex items-center space-x-2 shadow-none hover:bg-input/80 px-4 py-2 sm:px-4 sm:py-2 w-full sm:w-auto"
+                size="sm"
+                className="ml-2 rounded-lg bg-primary/80 border border-white text-white font-medium transition-colors duration-200 flex items-center justify-center space-x-2 shadow-none hover:bg-primary px-2 py-2 w-9 sm:w-auto"
                 data-testid="button-admin-login"
               >
-                <span>Admin Login</span>
+                <span className="sm:hidden"><Lock size={18} /></span>
+                <span className="hidden sm:inline">Admin Login</span>
               </Button>
             </Link>
           )}
