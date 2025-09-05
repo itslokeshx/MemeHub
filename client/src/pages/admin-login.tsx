@@ -15,7 +15,9 @@ export default function AdminLogin() {
     setLoading(true);
     setError("");
     // TODO: Replace with real authentication logic
-    if (username === "admin" && password === "memehub123") {
+    const adminUser = import.meta.env.VITE_ADMIN_USERNAME;
+    const adminPass = import.meta.env.VITE_ADMIN_PASSWORD;
+    if (username === adminUser && password === adminPass) {
       localStorage.setItem("isAdmin", "true");
       setLocation("/admin-dashboard");
     } else {
