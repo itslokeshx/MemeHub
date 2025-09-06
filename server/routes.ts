@@ -7,6 +7,21 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
 
+/**
+ * IMPORTANT: Cloudinary URL handling
+ * 
+ * Cloudinary URLs include version numbers in the format:
+ * https://res.cloudinary.com/cloud_name/image/upload/v1234567890/folder/public_id.jpg
+ * 
+ * When deleting images, we must extract the public_id WITHOUT the version number.
+ * The extractCloudinaryPublicId() function handles this properly by:
+ * 1. Splitting on '/upload/'
+ * 2. Removing file extensions
+ * 3. Removing version numbers (v\d+/)
+ * 
+ * This prevents "not found" errors when deleting images from Cloudinary.
+ */
+
 // Extend Express Request to include file property
 interface MulterRequest extends Request {
   file?: Express.Multer.File;
@@ -34,6 +49,34 @@ const upload = multer({
     fileSize: 10 * 1024 * 1024, // 10MB limit
   }
 });
+
+// Utility function to extract public_id from Cloudinary URL
+function extractCloudinaryPublicId(imageUrl: string): string | null {
+  if (!imageUrl.includes("cloudinary.com")) {
+    return null;
+  }
+  
+  const parts = imageUrl.split('/upload/');
+  if (parts.length !== 2) {
+    throw new Error(`Invalid Cloudinary URL format: ${imageUrl}`);
+  }
+  
+  let publicIdWithExt = parts[1];
+  // Remove file extension
+  const dotIdx = publicIdWithExt.lastIndexOf('.');
+  if (dotIdx !== -1) {
+    publicIdWithExt = publicIdWithExt.substring(0, dotIdx);
+  }
+  // Remove version number if present (starts with 'v' followed by digits)
+  publicIdWithExt = publicIdWithExt.replace(/^v\d+\//, '');
+  
+  // Validate public_id format
+  if (!publicIdWithExt || publicIdWithExt.trim() === '') {
+    throw new Error(`Invalid public_id extracted from URL: ${imageUrl}`);
+  }
+  
+  return publicIdWithExt;
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Get all memes with optional search and pagination
@@ -129,31 +172,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Meme not found" });
       }
 
-      // Extract public_id from Cloudinary URL and delete from Cloudinary
-      if (meme.imageUrl.includes("cloudinary.com")) {
-        // Cloudinary URLs look like: https://res.cloudinary.com/<cloud_name>/image/upload/v<version>/memes/<public_id>.<ext>
-        // We want to extract the path after '/upload/' and before the extension
-        try {
-          const urlParts = meme.imageUrl.split("/upload/");
-          if (urlParts.length === 2) {
-            let publicIdWithExt = urlParts[1]; // e.g. memes/abc123.jpg
-            // Remove extension
-            const dotIdx = publicIdWithExt.lastIndexOf(".");
-            if (dotIdx !== -1) publicIdWithExt = publicIdWithExt.substring(0, dotIdx);
-            await cloudinary.uploader.destroy(publicIdWithExt);
+      console.log(`[Delete] Starting deletion for meme ID: ${req.params.id}, URL: ${meme.imageUrl}`);
+
+      // Delete from Cloudinary first
+      let cloudinaryDeleted = false;
+      try {
+        const publicId = extractCloudinaryPublicId(meme.imageUrl);
+        if (publicId) {
+          console.log(`[Cloudinary] Attempting to delete public_id: ${publicId}`);
+          const result = await cloudinary.uploader.destroy(publicId);
+          console.log(`[Cloudinary] Delete result:`, result);
+          
+          if (result.result === 'ok') {
+            cloudinaryDeleted = true;
+            console.log(`[Cloudinary] Successfully deleted public_id: ${publicId}`);
+          } else if (result.result === 'not found') {
+            // Image might already be deleted, but that's okay
+            cloudinaryDeleted = true;
+            console.log(`[Cloudinary] Image already deleted or not found: ${publicId}`);
+          } else {
+            console.warn(`[Cloudinary] Delete failed for public_id: ${publicId}, result:`, result);
           }
-        } catch (e) {
-          console.error("Failed to parse and delete Cloudinary image:", e);
+        } else {
+          // If it's not a Cloudinary URL, consider it "deleted" since there's nothing to delete
+          cloudinaryDeleted = true;
+          console.log(`[Cloudinary] Not a Cloudinary URL, skipping deletion: ${meme.imageUrl}`);
         }
+      } catch (e) {
+        console.error("[Cloudinary] Failed to delete image:", e);
+        // Don't fail the entire operation if Cloudinary deletion fails
+        // The image might already be deleted or the URL might be malformed
       }
 
-      const deleted = await storage.deleteMeme(req.params.id);
-      if (!deleted) {
-        return res.status(404).json({ message: "Meme not found" });
+      // Delete from MongoDB
+      const mongoDeleted = await storage.deleteMeme(req.params.id);
+      if (!mongoDeleted) {
+        console.error(`[MongoDB] Failed to delete meme with ID: ${req.params.id}`);
+        return res.status(500).json({ message: "Failed to delete meme from database" });
       }
       
-      res.json({ message: "Meme deleted successfully" });
+      console.log(`[MongoDB] Successfully deleted meme with ID: ${req.params.id}`);
+      
+      // Return success even if Cloudinary deletion failed, but log the issue
+      if (!cloudinaryDeleted) {
+        console.warn(`[Warning] Meme deleted from database but Cloudinary deletion failed for ID: ${req.params.id}`);
+      }
+      
+      res.json({ 
+        message: "Meme deleted successfully",
+        cloudinaryDeleted,
+        mongoDeleted: true
+      });
     } catch (error) {
+      console.error(`[Delete] Error deleting meme ${req.params.id}:`, error);
       res.status(500).json({ 
         message: "Failed to delete meme",
         error: error instanceof Error ? error.message : "Unknown error"
@@ -188,11 +259,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // If a new image is uploaded, use its URL and delete the old one from Cloudinary
       if (req.file) {
         newImageUrl = req.file.path;
-        if (meme.imageUrl.includes("cloudinary.com")) {
-          const publicId = meme.imageUrl.split("/").pop()?.split(".")[0];
+        try {
+          const publicId = extractCloudinaryPublicId(meme.imageUrl);
           if (publicId) {
-            await cloudinary.uploader.destroy(`memes/${publicId}`);
+            console.log(`[Cloudinary] Deleting old image during rename: ${publicId}`);
+            const result = await cloudinary.uploader.destroy(publicId);
+            console.log(`[Cloudinary] Old image delete result:`, result);
           }
+        } catch (e) {
+          console.error("[Cloudinary] Failed to delete old image during rename:", e);
         }
       }
 
