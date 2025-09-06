@@ -3,7 +3,7 @@
 MemeHub is a **full-stack MERN application** for uploading, searching, and managing memes.  
 It’s a **public meme-sharing platform** where anyone can upload images, browse memes, and contribute to the project.  
 
-👉 **Live Demo:** [https://memehub-m4gy.onrender.com/](https://memehub-m4gy.onrender.com/)  
+👉 **Live link:** [https://memehub-m4gy.onrender.com/](https://memehub-m4gy.onrender.com/)  
 
 ---
 
