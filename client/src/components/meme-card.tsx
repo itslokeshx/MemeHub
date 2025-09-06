@@ -33,7 +33,18 @@ export default function MemeCard({ meme }: MemeCardProps) {
   // Update meme mutation
   const updateMutation = useMutation({
     mutationFn: async (updates: { title: string; tags: string[] }) => {
-      const response = await apiRequest("PATCH", `/api/memes/${meme.id}`, updates);
+      const formData = new FormData();
+      formData.append("title", updates.title);
+      formData.append("tags", updates.tags.join(","));
+      // PATCH to /api/memes/:id/rename
+      const response = await fetch(`/api/memes/${meme.id}/rename`, {
+        method: "PATCH",
+        body: formData,
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Failed to rename meme");
+      }
       return response.json();
     },
     onSuccess: () => {

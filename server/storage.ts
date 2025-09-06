@@ -7,6 +7,7 @@ export interface IStorage {
   getMemes(options?: { search?: string; limit?: number; offset?: number }): Promise<Meme[]>;
   createMeme(meme: InsertMeme): Promise<Meme>;
   deleteMeme(id: string): Promise<boolean>;
+  renameMeme(id: string, newTitle: string, newImageUrl: string, newTags?: string[]): Promise<Meme | undefined>;
 }
 
 // Mongoose Schema for Meme
@@ -54,11 +55,9 @@ export class MongoStorage implements IStorage {
   }
 
   async getMemes(options: { search?: string; limit?: number; offset?: number } = {}): Promise<Meme[]> {
-    const { search, limit = 20, offset = 0 } = options;
-    
+    const { search, limit = 10000, offset = 0 } = options;
     try {
       let query = {};
-      
       // Add search filter if provided
       if (search) {
         query = {
@@ -68,14 +67,12 @@ export class MongoStorage implements IStorage {
           ]
         };
       }
-
       const memes = await MemeModel
         .find(query)
-        .sort({ createdAt: -1 }) // Sort by newest first
+        .sort({ createdAt: -1 })
         .skip(offset)
         .limit(limit)
         .lean();
-
       return memes.map(meme => ({
         id: meme.id,
         title: meme.title,
@@ -122,6 +119,29 @@ export class MongoStorage implements IStorage {
     } catch (error) {
       console.error('Error deleting meme:', error);
       return false;
+    }
+  }
+
+  async renameMeme(id: string, newTitle: string, newImageUrl: string, newTags?: string[]): Promise<Meme | undefined> {
+    try {
+      const updateFields: any = { title: newTitle, imageUrl: newImageUrl };
+      if (newTags) updateFields.tags = newTags;
+      const updated = await MemeModel.findOneAndUpdate(
+        { id },
+        { $set: updateFields },
+        { new: true }
+      ).lean();
+      if (!updated) return undefined;
+      return {
+        id: updated.id,
+        title: updated.title,
+        tags: updated.tags,
+        imageUrl: updated.imageUrl,
+        createdAt: updated.createdAt
+      };
+    } catch (error) {
+      console.error('Error renaming meme:', error);
+      return undefined;
     }
   }
 }
@@ -171,6 +191,14 @@ export class MemStorage implements IStorage {
 
   async deleteMeme(id: string): Promise<boolean> {
     return this.memes.delete(id);
+  }
+
+  async renameMeme(id: string, newTitle: string, newImageUrl: string, newTags?: string[]): Promise<Meme | undefined> {
+    const meme = this.memes.get(id);
+    if (!meme) return undefined;
+    const updated: Meme = { ...meme, title: newTitle, imageUrl: newImageUrl, tags: newTags ?? meme.tags };
+    this.memes.set(id, updated);
+    return updated;
   }
 }
 

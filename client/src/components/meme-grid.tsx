@@ -115,7 +115,7 @@ export default function MemeGrid({ searchQuery = "" }: MemeGridProps) {
       {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex justify-center items-center space-x-4 mt-12">
-          <Button
+          {/* <Button
             variant="ghost"
             onClick={handlePrevPage}
             disabled={currentPage === 1}
@@ -123,9 +123,9 @@ export default function MemeGrid({ searchQuery = "" }: MemeGridProps) {
             data-testid="button-prev-page"
           >
             <ChevronLeft className="mr-2" size={16} />Previous
-          </Button>
+          </Button> */}
           
-          <div className="flex space-x-2">
+          {/* <div className="flex space-x-2">
             {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
               const page = i + 1;
               const isActive = page === currentPage;
@@ -142,9 +142,9 @@ export default function MemeGrid({ searchQuery = "" }: MemeGridProps) {
                 </Button>
               );
             })}
-          </div>
+          </div> */}
           
-          <Button
+          {/* <Button
             variant="ghost"
             onClick={handleNextPage}
             disabled={currentPage >= totalPages}
@@ -152,7 +152,7 @@ export default function MemeGrid({ searchQuery = "" }: MemeGridProps) {
             data-testid="button-next-page"
           >
             Next<ChevronRight className="ml-2" size={16} />
-          </Button>
+          </Button> */}
         </div>
       )}
     </div>

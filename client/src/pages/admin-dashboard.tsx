@@ -9,7 +9,8 @@ export default function AdminDashboard() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["/api/memes"],
     queryFn: async () => {
-      const res = await apiRequest("GET", "/api/memes");
+      // Request all memes with a high limit
+      const res = await apiRequest("GET", "/api/memes?limit=1000");
       return res.json();
     },
   });

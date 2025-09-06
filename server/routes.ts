@@ -41,14 +41,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const searchSchema = z.object({
         search: z.string().optional(),
-        limit: z.string().transform(val => parseInt(val) || 20).optional(),
-        offset: z.string().transform(val => parseInt(val) || 0).optional(),
+        limit: z.string().optional(),
+        offset: z.string().optional(),
       });
 
-      const { search, limit, offset } = searchSchema.parse(req.query);
-      const memes = await storage.getMemes({ search, limit, offset });
-      
-      res.json(memes);
+  const { search } = searchSchema.parse(req.query);
+  const result = await storage.getMemes({ search });
+  res.json(result);
     } catch (error) {
       res.status(400).json({ 
         message: "Failed to fetch memes",
@@ -132,9 +131,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Extract public_id from Cloudinary URL and delete from Cloudinary
       if (meme.imageUrl.includes("cloudinary.com")) {
-        const publicId = meme.imageUrl.split("/").pop()?.split(".")[0];
-        if (publicId) {
-          await cloudinary.uploader.destroy(`memes/${publicId}`);
+        // Cloudinary URLs look like: https://res.cloudinary.com/<cloud_name>/image/upload/v<version>/memes/<public_id>.<ext>
+        // We want to extract the path after '/upload/' and before the extension
+        try {
+          const urlParts = meme.imageUrl.split("/upload/");
+          if (urlParts.length === 2) {
+            let publicIdWithExt = urlParts[1]; // e.g. memes/abc123.jpg
+            // Remove extension
+            const dotIdx = publicIdWithExt.lastIndexOf(".");
+            if (dotIdx !== -1) publicIdWithExt = publicIdWithExt.substring(0, dotIdx);
+            await cloudinary.uploader.destroy(publicIdWithExt);
+          }
+        } catch (e) {
+          console.error("Failed to parse and delete Cloudinary image:", e);
         }
       }
 
@@ -147,6 +156,77 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       res.status(500).json({ 
         message: "Failed to delete meme",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Rename meme (update title and image)
+  app.patch("/api/memes/:id/rename", upload.single("image"), async (req: MulterRequest, res) => {
+    console.log("[PATCH] /api/memes/:id/rename called", {
+      id: req.params.id,
+      body: req.body,
+      file: req.file,
+      headers: req.headers,
+      method: req.method,
+      url: req.url
+    });
+    try {
+      const meme = await storage.getMeme(req.params.id);
+      if (!meme) {
+        console.log("Meme not found for id", req.params.id);
+        return res.status(404).json({ message: "Meme not found" });
+      }
+
+      const bodySchema = z.object({
+        title: z.string().min(1, "Title is required").max(200, "Title too long"),
+        tags: z.string().optional(),
+      });
+      const { title, tags } = bodySchema.parse(req.body);
+
+      let newImageUrl = meme.imageUrl;
+      // If a new image is uploaded, use its URL and delete the old one from Cloudinary
+      if (req.file) {
+        newImageUrl = req.file.path;
+        if (meme.imageUrl.includes("cloudinary.com")) {
+          const publicId = meme.imageUrl.split("/").pop()?.split(".")[0];
+          if (publicId) {
+            await cloudinary.uploader.destroy(`memes/${publicId}`);
+          }
+        }
+      }
+
+      // Parse tags string to array, fallback to old tags if not provided
+      let tagsArr = meme.tags;
+      if (typeof tags === "string") {
+        tagsArr = tags
+          .split(",")
+          .map(tag => tag.trim())
+          .filter(tag => tag.length > 0)
+          .slice(0, 10);
+      }
+
+      const updated = await storage.renameMeme(req.params.id, title, newImageUrl, tagsArr);
+      if (!updated) {
+        console.log("Failed to update meme for id", req.params.id);
+        return res.status(500).json({ message: "Failed to rename meme" });
+      }
+      console.log("Meme updated successfully", updated);
+      res.json(updated);
+    } catch (error) {
+      console.error("Error in /api/memes/:id/rename", error);
+      // Clean up uploaded file if validation fails
+      if (req.file && 'public_id' in req.file) {
+        cloudinary.uploader.destroy((req.file as any).public_id).catch(console.error);
+      }
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: error.errors 
+        });
+      }
+      res.status(500).json({ 
+        message: "Failed to rename meme",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }
