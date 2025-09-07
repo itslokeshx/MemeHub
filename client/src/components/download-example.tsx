@@ -60,9 +60,9 @@ export default function DownloadExample() {
               {/* Download buttons */}
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Method 1: Direct URL</h4>
+                  <h4 className="text-sm font-medium mb-2">Method 1: Direct URL (Auto Download)</h4>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Creates direct download link to Cloudinary URL
+                    Automatically downloads from Cloudinary URL immediately
                   </p>
                   <DownloadButton 
                     imageUrl={meme.imageUrl}
@@ -71,9 +71,9 @@ export default function DownloadExample() {
                 </div>
                 
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Method 2: Meme ID (Backend)</h4>
+                  <h4 className="text-sm font-medium mb-2">Method 2: Meme ID (Auto Download)</h4>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Uses backend endpoint which redirects to Cloudinary
+                    Automatically downloads via backend endpoint
                   </p>
                   <DownloadButton 
                     memeId={meme.id}
@@ -106,7 +106,7 @@ export default function DownloadExample() {
         <CardContent>
           <div className="space-y-4">
             <div>
-              <h4 className="font-medium mb-2">1. With direct image URL:</h4>
+              <h4 className="font-medium mb-2">1. With direct image URL (Auto Download):</h4>
               <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
 {`<DownloadButton 
   imageUrl="https://res.cloudinary.com/.../image.jpg"
@@ -114,12 +114,12 @@ export default function DownloadExample() {
 />`}
               </pre>
               <p className="text-xs text-muted-foreground mt-1">
-                ✅ Creates direct download link to Cloudinary URL
+                ✅ Automatically downloads immediately when clicked
               </p>
             </div>
             
             <div>
-              <h4 className="font-medium mb-2">2. With meme ID (Recommended):</h4>
+              <h4 className="font-medium mb-2">2. With meme ID (Auto Download):</h4>
               <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
 {`<DownloadButton 
   memeId="072dcc25-fee7-43c4-a289-f14c2774838e"
@@ -127,7 +127,7 @@ export default function DownloadExample() {
 />`}
               </pre>
               <p className="text-xs text-muted-foreground mt-1">
-                ✅ Uses backend endpoint which redirects to Cloudinary
+                ✅ Automatically downloads via backend endpoint
               </p>
             </div>
             

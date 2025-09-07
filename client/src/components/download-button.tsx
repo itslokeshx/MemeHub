@@ -19,12 +19,12 @@ interface DownloadButtonProps {
 }
 
 /**
- * DownloadButton component that can download images either from:
+ * DownloadButton component that automatically downloads images either from:
  * 1. Direct imageUrl (Cloudinary URL) - creates direct download link
  * 2. Meme ID (uses backend download endpoint)
  * 
- * Uses simple <a> tag approach for reliable downloads across all browsers.
- * Automatically handles filename extraction and error states.
+ * Uses dual approach: direct <a> tag download + window.open fallback for maximum compatibility.
+ * Automatically triggers download immediately when clicked with no user interaction required.
  */
 export default function DownloadButton({
   imageUrl,
@@ -65,26 +65,49 @@ export default function DownloadButton({
   };
 
   /**
-   * Downloads image from direct URL using simple link approach
+   * Downloads image from direct URL using reliable blob approach
    */
   const downloadFromUrl = async (url: string, downloadFilename: string): Promise<void> => {
     try {
-      // Create a temporary download link directly to the URL
+      // Fetch the image as blob to ensure download works
+      const response = await fetch(url, {
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Create blob URL and download
+      const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = url; // Direct Cloudinary URL
+      link.href = blobUrl;
       link.download = downloadFilename;
       link.style.display = 'none';
       
-      // Trigger download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      // Small delay to ensure download starts
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Clean up blob URL
+      window.URL.revokeObjectURL(blobUrl);
+      
     } catch (error) {
-      console.error('Download from URL failed:', error);
-      throw error;
+      console.error('Blob download failed, trying direct link:', error);
+      
+      // Fallback: Direct link approach
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = downloadFilename;
+      link.style.display = 'none';
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -96,22 +119,46 @@ export default function DownloadButton({
       // Use the backend download endpoint which redirects to Cloudinary URL
       const downloadUrl = `/api/memes/${id}/download`;
       
-      // Create a temporary download link to the backend endpoint
+      // Fetch the image as blob to ensure download works
+      const response = await fetch(downloadUrl, {
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status}`);
+      }
+      
+      const blob = await response.blob();
+      
+      // Create blob URL and download
+      const blobUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = downloadUrl;
+      link.href = blobUrl;
       link.download = downloadFilename;
       link.style.display = 'none';
       
-      // Trigger download
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       
-      // Small delay to ensure download starts
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Clean up blob URL
+      window.URL.revokeObjectURL(blobUrl);
+      
     } catch (error) {
-      console.error('Download from ID failed:', error);
-      throw error;
+      console.error('Blob download failed, trying direct link:', error);
+      
+      // Fallback: Direct link approach
+      const downloadUrl = `/api/memes/${id}/download`;
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = downloadFilename;
+      link.style.display = 'none';
+      link.target = '_blank';
+      
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
     }
   };
 
@@ -146,7 +193,7 @@ export default function DownloadButton({
       // Success toast
       toast({
         title: "Download started",
-        description: `Downloading ${downloadFilename}...`,
+        description: `${downloadFilename} is downloading automatically...`,
       });
       
     } catch (error) {
