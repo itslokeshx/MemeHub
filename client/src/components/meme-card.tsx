@@ -1,16 +1,16 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Download, Eye, Edit2, Trash2, Save, X } from "lucide-react";
+import { Eye, Edit2, Trash2, Save, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { type Meme } from "@shared/schema";
-import { downloadMeme } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import DownloadButton from "./download-button";
 
 interface MemeCardProps {
   meme: Meme;
@@ -18,7 +18,6 @@ interface MemeCardProps {
 
 export default function MemeCard({ meme }: MemeCardProps) {
   const [location] = useLocation();
-  const [isDownloading, setIsDownloading] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(meme.title);
   const [editTags, setEditTags] = useState(meme.tags.join(", "));
@@ -104,29 +103,6 @@ export default function MemeCard({ meme }: MemeCardProps) {
     },
   });
 
-  const handleDownload = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    try {
-      setIsDownloading(true);
-      const filename = `${meme.title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
-      await downloadMeme(meme.imageUrl, filename);
-      
-      toast({
-        title: "Download started",
-        description: "Your meme is being downloaded",
-      });
-    } catch (error) {
-      toast({
-        title: "Download failed",
-        description: "Failed to download the meme. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDownloading(false);
-    }
-  };
 
   const handleSaveEdit = () => {
     if (!editTitle.trim()) {
@@ -309,15 +285,11 @@ export default function MemeCard({ meme }: MemeCardProps) {
         </div>
         
         {/* Download button at bottom */}
-        <Button
-          onClick={handleDownload}
-          disabled={isDownloading}
-          className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium transition-colors duration-200 flex items-center justify-center space-x-2"
+        <DownloadButton
+          imageUrl={meme.imageUrl}
+          filename={`${meme.title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`}
           data-testid={`button-download-${meme.id}`}
-        >
-          <Download size={16} />
-          <span>{isDownloading ? "Downloading..." : "Download"}</span>
-        </Button>
+        />
       </div>
     </Card>
   );

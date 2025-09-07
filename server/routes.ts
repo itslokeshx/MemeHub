@@ -115,6 +115,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Download meme by ID - redirects to Cloudinary URL
+  app.get("/api/memes/:id/download", async (req, res) => {
+    try {
+      const meme = await storage.getMeme(req.params.id);
+      if (!meme) {
+        return res.status(404).json({ message: "Meme not found" });
+      }
+      
+      // Redirect to the Cloudinary URL for direct download
+      res.redirect(meme.imageUrl);
+    } catch (error) {
+      res.status(500).json({ 
+        message: "Failed to get meme for download",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
   // Upload new meme
   app.post("/api/memes", upload.single("image"), async (req: MulterRequest, res) => {
     try {
