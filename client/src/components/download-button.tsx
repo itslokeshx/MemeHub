@@ -20,9 +20,10 @@ interface DownloadButtonProps {
 
 /**
  * DownloadButton component that can download images either from:
- * 1. Direct imageUrl (Cloudinary URL)
- * 2. Meme ID (fetches from backend API)
+ * 1. Direct imageUrl (Cloudinary URL) - creates direct download link
+ * 2. Meme ID (uses backend download endpoint)
  * 
+ * Uses simple <a> tag approach for reliable downloads across all browsers.
  * Automatically handles filename extraction and error states.
  */
 export default function DownloadButton({
@@ -64,21 +65,13 @@ export default function DownloadButton({
   };
 
   /**
-   * Downloads image from direct URL
+   * Downloads image from direct URL using simple link approach
    */
   const downloadFromUrl = async (url: string, downloadFilename: string): Promise<void> => {
     try {
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-      }
-      
-      const blob = await response.blob();
-      const blobUrl = window.URL.createObjectURL(blob);
-      
-      // Create temporary download link
+      // Create a temporary download link directly to the URL
       const link = document.createElement('a');
-      link.href = blobUrl;
+      link.href = url; // Direct Cloudinary URL
       link.download = downloadFilename;
       link.style.display = 'none';
       
@@ -87,8 +80,8 @@ export default function DownloadButton({
       link.click();
       document.body.removeChild(link);
       
-      // Clean up
-      window.URL.revokeObjectURL(blobUrl);
+      // Small delay to ensure download starts
+      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error('Download from URL failed:', error);
       throw error;
@@ -100,19 +93,22 @@ export default function DownloadButton({
    */
   const downloadFromId = async (id: string, downloadFilename: string): Promise<void> => {
     try {
-      // First, get the meme data to extract the imageUrl
-      const memeResponse = await fetch(`/api/memes/${id}`);
-      if (!memeResponse.ok) {
-        throw new Error(`Failed to fetch meme: ${memeResponse.status} ${memeResponse.statusText}`);
-      }
+      // Use the backend download endpoint which redirects to Cloudinary URL
+      const downloadUrl = `/api/memes/${id}/download`;
       
-      const meme = await memeResponse.json();
-      if (!meme.imageUrl) {
-        throw new Error('Meme has no image URL');
-      }
+      // Create a temporary download link to the backend endpoint
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = downloadFilename;
+      link.style.display = 'none';
       
-      // Now download using the imageUrl
-      await downloadFromUrl(meme.imageUrl, downloadFilename);
+      // Trigger download
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      // Small delay to ensure download starts
+      await new Promise(resolve => setTimeout(resolve, 100));
     } catch (error) {
       console.error('Download from ID failed:', error);
       throw error;
@@ -156,10 +152,13 @@ export default function DownloadButton({
     } catch (error) {
       console.error('Download failed:', error);
       
+      // Simple error message for direct download approach
+      const errorMessage = error instanceof Error ? error.message : "Failed to download the image. Please try again.";
+      
       // Error toast
       toast({
         title: "Download failed",
-        description: error instanceof Error ? error.message : "Failed to download the image. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
