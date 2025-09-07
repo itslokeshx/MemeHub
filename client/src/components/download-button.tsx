@@ -20,11 +20,12 @@ interface DownloadButtonProps {
 
 /**
  * DownloadButton component that automatically downloads images either from:
- * 1. Direct imageUrl (Cloudinary URL) - creates direct download link
+ * 1. Direct imageUrl (Cloudinary URL) - uses fl_attachment for mobile compatibility
  * 2. Meme ID (uses backend download endpoint)
  * 
- * Uses dual approach: direct <a> tag download + window.open fallback for maximum compatibility.
- * Automatically triggers download immediately when clicked with no user interaction required.
+ * Uses Cloudinary's fl_attachment transformation to force download instead of opening in browser.
+ * Works reliably in mobile WebView, MIT App Inventor, Kodular, and all browsers.
+ * No blob errors or "can't handle URI" issues.
  */
 export default function DownloadButton({
   imageUrl,
@@ -65,100 +66,56 @@ export default function DownloadButton({
   };
 
   /**
-   * Downloads image from direct URL using reliable blob approach
+   * Downloads image from direct URL using Cloudinary fl_attachment (works in mobile apps)
    */
   const downloadFromUrl = async (url: string, downloadFilename: string): Promise<void> => {
     try {
-      // Fetch the image as blob to ensure download works
-      const response = await fetch(url, {
-        mode: 'cors',
-        credentials: 'omit'
-      });
+      // Convert Cloudinary URL to use fl_attachment for automatic download
+      let downloadUrl = url;
       
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.status}`);
+      // If it's a Cloudinary URL, add fl_attachment transformation
+      if (url.includes('cloudinary.com') && url.includes('/upload/')) {
+        // Insert fl_attachment before the version number
+        downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
       }
       
-      const blob = await response.blob();
-      
-      // Create blob URL and download
-      const blobUrl = window.URL.createObjectURL(blob);
+      // Create simple download link - works in mobile WebView
       const link = document.createElement('a');
-      link.href = blobUrl;
+      link.href = downloadUrl;
       link.download = downloadFilename;
       link.style.display = 'none';
       
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      
-      // Clean up blob URL
-      window.URL.revokeObjectURL(blobUrl);
       
     } catch (error) {
-      console.error('Blob download failed, trying direct link:', error);
-      
-      // Fallback: Direct link approach
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = downloadFilename;
-      link.style.display = 'none';
-      link.target = '_blank';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      console.error('Download failed:', error);
+      throw error;
     }
   };
 
   /**
-   * Downloads image using meme ID via backend API
+   * Downloads image using meme ID via backend API (works in mobile apps)
    */
   const downloadFromId = async (id: string, downloadFilename: string): Promise<void> => {
     try {
       // Use the backend download endpoint which redirects to Cloudinary URL
       const downloadUrl = `/api/memes/${id}/download`;
       
-      // Fetch the image as blob to ensure download works
-      const response = await fetch(downloadUrl, {
-        mode: 'cors',
-        credentials: 'omit'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch image: ${response.status}`);
-      }
-      
-      const blob = await response.blob();
-      
-      // Create blob URL and download
-      const blobUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.download = downloadFilename;
-      link.style.display = 'none';
-      
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      // Clean up blob URL
-      window.URL.revokeObjectURL(blobUrl);
-      
-    } catch (error) {
-      console.error('Blob download failed, trying direct link:', error);
-      
-      // Fallback: Direct link approach
-      const downloadUrl = `/api/memes/${id}/download`;
+      // Create simple download link - works in mobile WebView
       const link = document.createElement('a');
       link.href = downloadUrl;
       link.download = downloadFilename;
       link.style.display = 'none';
-      link.target = '_blank';
       
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      
+    } catch (error) {
+      console.error('Download failed:', error);
+      throw error;
     }
   };
 
@@ -193,7 +150,7 @@ export default function DownloadButton({
       // Success toast
       toast({
         title: "Download started",
-        description: `${downloadFilename} is downloading automatically...`,
+        description: `${downloadFilename} is downloading...`,
       });
       
     } catch (error) {

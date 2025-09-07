@@ -60,9 +60,9 @@ export default function DownloadExample() {
               {/* Download buttons */}
               <div className="space-y-3">
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Method 1: Direct URL (Auto Download)</h4>
+                  <h4 className="text-sm font-medium mb-2">Method 1: Direct URL (Mobile Compatible)</h4>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Automatically downloads from Cloudinary URL immediately
+                    Uses Cloudinary fl_attachment - works in mobile apps
                   </p>
                   <DownloadButton 
                     imageUrl={meme.imageUrl}
@@ -71,9 +71,9 @@ export default function DownloadExample() {
                 </div>
                 
                 <div>
-                  <h4 className="text-sm font-medium mb-2">Method 2: Meme ID (Auto Download)</h4>
+                  <h4 className="text-sm font-medium mb-2">Method 2: Meme ID (Mobile Compatible)</h4>
                   <p className="text-xs text-muted-foreground mb-2">
-                    Automatically downloads via backend endpoint
+                    Uses backend endpoint - works in mobile WebView
                   </p>
                   <DownloadButton 
                     memeId={meme.id}
@@ -106,7 +106,7 @@ export default function DownloadExample() {
         <CardContent>
           <div className="space-y-4">
             <div>
-              <h4 className="font-medium mb-2">1. With direct image URL (Auto Download):</h4>
+              <h4 className="font-medium mb-2">1. With direct image URL (Mobile Compatible):</h4>
               <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
 {`<DownloadButton 
   imageUrl="https://res.cloudinary.com/.../image.jpg"
@@ -114,12 +114,12 @@ export default function DownloadExample() {
 />`}
               </pre>
               <p className="text-xs text-muted-foreground mt-1">
-                ✅ Automatically downloads immediately when clicked
+                ✅ Uses fl_attachment - works in mobile WebView/MIT/Kodular
               </p>
             </div>
             
             <div>
-              <h4 className="font-medium mb-2">2. With meme ID (Auto Download):</h4>
+              <h4 className="font-medium mb-2">2. With meme ID (Mobile Compatible):</h4>
               <pre className="bg-muted p-3 rounded text-sm overflow-x-auto">
 {`<DownloadButton 
   memeId="072dcc25-fee7-43c4-a289-f14c2774838e"
@@ -127,7 +127,7 @@ export default function DownloadExample() {
 />`}
               </pre>
               <p className="text-xs text-muted-foreground mt-1">
-                ✅ Automatically downloads via backend endpoint
+                ✅ Uses backend endpoint - no blob errors
               </p>
             </div>
             
