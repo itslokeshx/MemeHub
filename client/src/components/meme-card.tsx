@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation, Link } from "wouter";
+import { useLocation } from "wouter";
 import { Eye, Edit2, Trash2, Save, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ interface MemeCardProps {
 }
 
 export default function MemeCard({ meme }: MemeCardProps) {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(meme.title);
   const [editTags, setEditTags] = useState(meme.tags.join(", "));
@@ -28,6 +28,16 @@ export default function MemeCard({ meme }: MemeCardProps) {
   // Only show admin controls if on /admin-dashboard and isAdmin is true
   const isAdmin = typeof window !== "undefined" && localStorage.getItem("isAdmin") === "true";
   const showAdminControls = isAdmin && location === "/admin-dashboard";
+
+  // Handle card click to navigate to preview
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on interactive elements
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('input') || target.closest('[role="dialog"]')) {
+      return;
+    }
+    navigate(`/meme/${meme.id}`);
+  };
 
   // Update meme mutation
   const updateMutation = useMutation({
@@ -103,7 +113,6 @@ export default function MemeCard({ meme }: MemeCardProps) {
     },
   });
 
-
   const handleSaveEdit = () => {
     if (!editTitle.trim()) {
       toast({
@@ -144,27 +153,30 @@ export default function MemeCard({ meme }: MemeCardProps) {
   };
 
   return (
-    <Card className="bg-card rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group border-border flex flex-col h-full">
+    <Card 
+      className="bg-card rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group border-border flex flex-col h-full cursor-pointer"
+      onClick={handleCardClick}
+      data-testid={`card-meme-${meme.id}`}
+    >
       <div className="relative aspect-square overflow-hidden flex-shrink-0">
-        <Link href={`/meme/${meme.id}`} data-testid={`link-preview-${meme.id}`}>
-          <div className="cursor-pointer w-full h-full">
-            <img
-              src={meme.imageUrl}
-              alt={meme.title}
-              className="w-full h-full object-cover"
-              loading="lazy"
-              data-testid={`img-meme-${meme.id}`}
-            />
-            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
-          </div>
-        </Link>
+        <img
+          src={meme.imageUrl}
+          alt={meme.title}
+          className="w-full h-full object-cover"
+          loading="lazy"
+          data-testid={`img-meme-${meme.id}`}
+        />
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
         
         {/* Admin controls only on admin dashboard */}
         {showAdminControls && (
           <div className="absolute top-2 right-2 flex flex-col gap-1">
             <Button
               size="sm"
-              onClick={() => setIsEditing(true)}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
               disabled={isEditing}
               className="w-8 h-8 bg-black/50 hover:bg-secondary text-white rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
               data-testid={`button-edit-${meme.id}`}
@@ -175,6 +187,7 @@ export default function MemeCard({ meme }: MemeCardProps) {
               <AlertDialogTrigger asChild>
                 <Button
                   size="sm"
+                  onClick={(e) => e.stopPropagation()}
                   className="w-8 h-8 bg-black/50 hover:bg-destructive text-white rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
                   data-testid={`button-delete-${meme.id}`}
                 >
@@ -210,10 +223,11 @@ export default function MemeCard({ meme }: MemeCardProps) {
       <div className="p-4 flex flex-col flex-grow">
         {/* Title - Editable for admins */}
         {isEditing ? (
-          <div className="space-y-2 mb-3">
+          <div className="space-y-2 mb-3" onClick={(e) => e.stopPropagation()}>
             <Input
               value={editTitle}
               onChange={(e) => setEditTitle(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
               placeholder="Meme title"
               className="bg-input border-border text-foreground text-sm font-semibold"
               data-testid={`input-edit-title-${meme.id}`}
@@ -221,6 +235,7 @@ export default function MemeCard({ meme }: MemeCardProps) {
             <Input
               value={editTags}
               onChange={(e) => setEditTags(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
               placeholder="Tags (comma separated)"
               className="bg-input border-border text-foreground text-xs"
               data-testid={`input-edit-tags-${meme.id}`}
@@ -228,7 +243,10 @@ export default function MemeCard({ meme }: MemeCardProps) {
             <div className="flex gap-2">
               <Button
                 size="sm"
-                onClick={handleSaveEdit}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSaveEdit();
+                }}
                 disabled={updateMutation.isPending}
                 className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                 data-testid={`button-save-${meme.id}`}
@@ -239,7 +257,10 @@ export default function MemeCard({ meme }: MemeCardProps) {
               <Button
                 size="sm"
                 variant="outline"
-                onClick={handleCancelEdit}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleCancelEdit();
+                }}
                 disabled={updateMutation.isPending}
                 className="flex-1 border-border text-foreground hover:bg-muted"
                 data-testid={`button-cancel-edit-${meme.id}`}
@@ -259,7 +280,7 @@ export default function MemeCard({ meme }: MemeCardProps) {
               {meme.title}
             </h3>
             
-            <div className="flex flex-wrap gap-1 mb-3">
+            <div className="flex flex-wrap gap-1 mb-2">
               {meme.tags.slice(0, 3).map((tag, index) => (
                 <Badge
                   key={index}
@@ -279,24 +300,30 @@ export default function MemeCard({ meme }: MemeCardProps) {
                 </Badge>
               )}
             </div>
+            
+            {/* Upload time below tags */}
+            <div className="mb-3">
+              <span 
+                className="text-xs text-muted-foreground"
+                data-testid={`text-date-${meme.id}`}
+              >
+                {formatDate(new Date(meme.createdAt))}
+              </span>
+            </div>
           </>
         )}
         
         <div className="flex-grow" />
         
-        <div className="mt-auto space-y-3">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span data-testid={`text-date-${meme.id}`}>
-              {formatDate(new Date(meme.createdAt))}
-            </span>
-          </div>
-          
+        <div className="mt-auto">
           {/* Download button fixed at bottom */}
-          <DownloadButton
-            imageUrl={meme.imageUrl}
-            filename={`${meme.title.replace(/[^a-zA-Z0-9\s]/g, '_').trim()}.jpg`}
-            data-testid={`button-download-${meme.id}`}
-          />
+          <div onClick={(e) => e.stopPropagation()}>
+            <DownloadButton
+              imageUrl={meme.imageUrl}
+              filename={`${meme.title.replace(/[^a-zA-Z0-9\s]/g, '_').trim()}.jpg`}
+              data-testid={`button-download-${meme.id}`}
+            />
+          </div>
         </div>
       </div>
     </Card>
