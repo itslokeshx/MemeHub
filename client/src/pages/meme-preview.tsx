@@ -24,7 +24,7 @@ export default function MemePreview() {
   });
 
   const suggestedMemes = allMemes
-    .filter(m => m.id !== memeId)
+    .filter(m => m?.id !== memeId)
     .slice(0, 8); // Show up to 8 suggestions
 
   const formatDate = (dateValue: string | Date | undefined) => {
@@ -51,6 +51,11 @@ export default function MemePreview() {
     } catch (error) {
       return "Unknown date";
     }
+  };
+
+  const createSafeFilename = (title: string | undefined) => {
+    if (!title) return "meme.jpg";
+    return `${title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`;
   };
 
   if (memeError) {
@@ -104,8 +109,8 @@ export default function MemePreview() {
             <div className="space-y-6 mb-12">
               <div className="relative">
                 <img
-                  src={meme.imageUrl}
-                  alt={meme.title}
+                  src={meme.imageUrl || ''}
+                  alt={meme.title || 'Meme'}
                   className="w-full max-h-[70vh] object-contain mx-auto rounded-lg shadow-lg"
                   data-testid={`img-preview-${meme.id}`}
                 />
@@ -117,20 +122,24 @@ export default function MemePreview() {
                   className="text-3xl font-bold text-foreground"
                   data-testid={`text-preview-title-${meme.id}`}
                 >
-                  {meme.title}
+                  {meme.title || 'Untitled Meme'}
                 </h1>
 
                 <div className="flex flex-wrap gap-2">
-                  {meme.tags?.map((tag, index) => (
-                    <Badge
-                      key={index}
-                      variant="secondary"
-                      className="bg-primary/20 text-primary hover:bg-primary hover:text-primary-foreground"
-                      data-testid={`tag-preview-${tag}-${meme.id}`}
-                    >
-                      {tag}
-                    </Badge>
-                  )) || <span className="text-muted-foreground text-sm">No tags</span>}
+                  {meme.tags && meme.tags.length > 0 ? (
+                    meme.tags.map((tag, index) => (
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="bg-primary/20 text-primary hover:bg-primary hover:text-primary-foreground"
+                        data-testid={`tag-preview-${tag}-${meme.id}`}
+                      >
+                        {tag}
+                      </Badge>
+                    ))
+                  ) : (
+                    <span className="text-muted-foreground text-sm">No tags</span>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
@@ -142,8 +151,8 @@ export default function MemePreview() {
                   </span>
                   
                   <DownloadButton
-                    imageUrl={meme.imageUrl}
-                    filename={`${meme.title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`}
+                    imageUrl={meme.imageUrl || ''}
+                    filename={createSafeFilename(meme.title)}
                     data-testid={`button-preview-download-${meme.id}`}
                   />
                 </div>
@@ -160,7 +169,7 @@ export default function MemePreview() {
                     <Skeleton key={i} className="aspect-square rounded-lg" />
                   ))}
                 </div>
-              ) : (
+              ) : suggestedMemes.length > 0 ? (
                 <div className="overflow-x-auto">
                   <div className="flex gap-4 pb-4" style={{ width: 'max-content' }}>
                     {suggestedMemes.map((suggestedMeme) => (
@@ -168,8 +177,8 @@ export default function MemePreview() {
                         <Card className="w-48 bg-card hover:bg-muted transition-colors cursor-pointer border-border">
                           <div className="aspect-square overflow-hidden rounded-t-lg">
                             <img
-                              src={suggestedMeme.imageUrl}
-                              alt={suggestedMeme.title}
+                              src={suggestedMeme.imageUrl || ''}
+                              alt={suggestedMeme.title || 'Meme'}
                               className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                               data-testid={`img-suggestion-${suggestedMeme.id}`}
                             />
@@ -177,10 +186,10 @@ export default function MemePreview() {
                           <div className="p-3">
                             <h3 
                               className="font-medium text-sm text-foreground line-clamp-2 mb-1"
-                              title={suggestedMeme.title}
+                              title={suggestedMeme.title || 'Untitled'}
                               data-testid={`text-suggestion-title-${suggestedMeme.id}`}
                             >
-                              {suggestedMeme.title}
+                              {suggestedMeme.title || 'Untitled Meme'}
                             </h3>
                             <p 
                               className="text-xs text-muted-foreground"
@@ -194,10 +203,22 @@ export default function MemePreview() {
                     ))}
                   </div>
                 </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-8">No other memes available</p>
               )}
             </div>
           </>
-        ) : null}
+        ) : (
+          <div className="text-center py-12">
+            <p className="text-muted-foreground">No meme found</p>
+            <Link href="/">
+              <Button className="mt-4 bg-primary hover:bg-primary/90 text-primary-foreground">
+                <ArrowLeft size={16} className="mr-2" />
+                Back to Gallery
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
     </div>
   );
