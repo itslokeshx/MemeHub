@@ -150,9 +150,9 @@ export default function MemePreview() {
                 </div>
 
                 <div className="space-y-3">
-                  <div className="text-center">
+                  <div className="text-left">
                     <span 
-                      className="text-sm text-muted-foreground"
+                      className="text-xs text-muted-foreground"
                       data-testid={`text-preview-date-${meme.id}`}
                     >
                       Uploaded {formatDate(meme.createdAt)}
