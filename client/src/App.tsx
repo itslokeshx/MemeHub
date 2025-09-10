@@ -8,6 +8,7 @@ import Home from "@/pages/home";
 import Upload from "@/pages/upload";
 import AdminLogin from "@/pages/admin-login";
 import AdminDashboard from "@/pages/admin-dashboard";
+import MemePreview from "@/pages/meme-preview";
 
 function Router() {
   // Protect admin dashboard route
@@ -22,6 +23,7 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/upload" component={Upload} />
+      <Route path="/meme/:id" component={MemePreview} />
       <Route path="/admin-login" component={AdminLogin} />
       <Route path="/admin-dashboard" component={ProtectedAdminDashboard} />
       <Route component={NotFound} />

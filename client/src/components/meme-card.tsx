@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Eye, Edit2, Trash2, Save, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -146,14 +146,18 @@ export default function MemeCard({ meme }: MemeCardProps) {
   return (
     <Card className="bg-card rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-border">
       <div className="relative aspect-square overflow-hidden">
-        <img
-          src={meme.imageUrl}
-          alt={meme.title}
-          className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-          loading="lazy"
-          data-testid={`img-meme-${meme.id}`}
-        />
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+        <Link href={`/meme/${meme.id}`} data-testid={`link-preview-${meme.id}`}>
+          <div className="cursor-pointer">
+            <img
+              src={meme.imageUrl}
+              alt={meme.title}
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              loading="lazy"
+              data-testid={`img-meme-${meme.id}`}
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
+          </div>
+        </Link>
         
         {/* Admin controls only on admin dashboard */}
         {showAdminControls && (
