@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import DownloadButton from "@/components/download-button";
+import MemeCard from "@/components/meme-card";
 import { type Meme } from "@shared/schema";
 
 export default function MemePreview() {
@@ -25,7 +26,7 @@ export default function MemePreview() {
 
   const suggestedMemes = allMemes
     .filter(m => m?.id !== memeId)
-    .slice(0, 8); // Show up to 8 suggestions
+    .slice(0, 20); // Show up to 20 suggestions
 
   const formatDate = (dateValue: string | Date | undefined) => {
     try {
@@ -142,19 +143,20 @@ export default function MemePreview() {
                   )}
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <span 
-                    className="text-sm text-muted-foreground"
-                    data-testid={`text-preview-date-${meme.id}`}
-                  >
-                    {formatDate(meme.createdAt)}
-                  </span>
-                  
+                <div className="space-y-3">
                   <DownloadButton
                     imageUrl={meme.imageUrl || ''}
                     filename={createSafeFilename(meme.title)}
                     data-testid={`button-preview-download-${meme.id}`}
                   />
+                  <div className="text-center">
+                    <span 
+                      className="text-sm text-muted-foreground"
+                      data-testid={`text-preview-date-${meme.id}`}
+                    >
+                      Uploaded {formatDate(meme.createdAt)}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -164,44 +166,25 @@ export default function MemePreview() {
               <h2 className="text-2xl font-semibold text-foreground">More Memes</h2>
               
               {suggestionsLoading ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Array.from({ length: 8 }).map((_, i) => (
-                    <Skeleton key={i} className="aspect-square rounded-lg" />
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+                  {Array.from({ length: 20 }).map((_, i) => (
+                    <div key={i} className="space-y-3">
+                      <Skeleton className="aspect-square w-full rounded-lg bg-muted" />
+                      <div className="space-y-2 p-2">
+                        <Skeleton className="h-4 w-3/4 bg-muted" />
+                        <div className="flex gap-2">
+                          <Skeleton className="h-6 w-12 rounded-full bg-muted" />
+                          <Skeleton className="h-6 w-16 rounded-full bg-muted" />
+                        </div>
+                      </div>
+                    </div>
                   ))}
                 </div>
               ) : suggestedMemes.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <div className="flex gap-4 pb-4" style={{ width: 'max-content' }}>
-                    {suggestedMemes.map((suggestedMeme) => (
-                      <Link key={suggestedMeme.id} href={`/meme/${suggestedMeme.id}`}>
-                        <Card className="w-48 bg-card hover:bg-muted transition-colors cursor-pointer border-border">
-                          <div className="aspect-square overflow-hidden rounded-t-lg">
-                            <img
-                              src={suggestedMeme.imageUrl || ''}
-                              alt={suggestedMeme.title || 'Meme'}
-                              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-                              data-testid={`img-suggestion-${suggestedMeme.id}`}
-                            />
-                          </div>
-                          <div className="p-3">
-                            <h3 
-                              className="font-medium text-sm text-foreground line-clamp-2 mb-1"
-                              title={suggestedMeme.title || 'Untitled'}
-                              data-testid={`text-suggestion-title-${suggestedMeme.id}`}
-                            >
-                              {suggestedMeme.title || 'Untitled Meme'}
-                            </h3>
-                            <p 
-                              className="text-xs text-muted-foreground"
-                              data-testid={`text-suggestion-date-${suggestedMeme.id}`}
-                            >
-                              {formatDate(suggestedMeme.createdAt)}
-                            </p>
-                          </div>
-                        </Card>
-                      </Link>
-                    ))}
-                  </div>
+                <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+                  {suggestedMemes.map((suggestedMeme) => (
+                    <MemeCard key={suggestedMeme.id} meme={suggestedMeme} />
+                  ))}
                 </div>
               ) : (
                 <p className="text-muted-foreground text-center py-8">No other memes available</p>
