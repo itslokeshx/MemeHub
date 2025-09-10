@@ -14,7 +14,7 @@ export default function MemePreview() {
 
   // Fetch specific meme
   const { data: meme, isLoading: memeLoading, error: memeError } = useQuery<Meme>({
-    queryKey: ["/api/memes", memeId],
+    queryKey: [`/api/memes/${memeId}`],
     enabled: !!memeId,
   });
 
