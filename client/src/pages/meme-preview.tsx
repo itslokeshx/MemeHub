@@ -110,7 +110,7 @@ export default function MemePreview() {
                 </h1>
 
                 <div className="flex flex-wrap gap-2">
-                  {meme.tags.map((tag, index) => (
+                  {meme.tags?.map((tag, index) => (
                     <Badge
                       key={index}
                       variant="secondary"
@@ -119,7 +119,7 @@ export default function MemePreview() {
                     >
                       {tag}
                     </Badge>
-                  ))}
+                  )) || <span className="text-muted-foreground text-sm">No tags</span>}
                 </div>
 
                 <div className="flex items-center justify-between">
