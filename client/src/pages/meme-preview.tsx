@@ -27,19 +27,30 @@ export default function MemePreview() {
     .filter(m => m.id !== memeId)
     .slice(0, 8); // Show up to 8 suggestions
 
-  const formatDate = (date: Date) => {
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffDays = Math.floor(diffHours / 24);
+  const formatDate = (dateValue: string | Date | undefined) => {
+    try {
+      if (!dateValue) return "Unknown date";
+      
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) {
+        return "Unknown date";
+      }
+      
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffDays = Math.floor(diffHours / 24);
 
-    if (diffHours < 1) return "Just now";
-    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
-    if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-    return new Intl.DateTimeFormat("en-US", { 
-      month: "short", 
-      day: "numeric" 
-    }).format(date);
+      if (diffHours < 1) return "Just now";
+      if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
+      if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
+      return new Intl.DateTimeFormat("en-US", { 
+        month: "short", 
+        day: "numeric" 
+      }).format(date);
+    } catch (error) {
+      return "Unknown date";
+    }
   };
 
   if (memeError) {
@@ -127,7 +138,7 @@ export default function MemePreview() {
                     className="text-sm text-muted-foreground"
                     data-testid={`text-preview-date-${meme.id}`}
                   >
-                    {formatDate(new Date(meme.createdAt))}
+                    {formatDate(meme.createdAt)}
                   </span>
                   
                   <DownloadButton
@@ -175,7 +186,7 @@ export default function MemePreview() {
                               className="text-xs text-muted-foreground"
                               data-testid={`text-suggestion-date-${suggestedMeme.id}`}
                             >
-                              {formatDate(new Date(suggestedMeme.createdAt))}
+                              {formatDate(suggestedMeme.createdAt)}
                             </p>
                           </div>
                         </Card>
