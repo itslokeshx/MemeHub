@@ -150,11 +150,6 @@ export default function MemePreview() {
                 </div>
 
                 <div className="space-y-3">
-                  <DownloadButton
-                    imageUrl={meme.imageUrl || ''}
-                    filename={createSafeFilename(meme.title)}
-                    data-testid={`button-preview-download-${meme.id}`}
-                  />
                   <div className="text-center">
                     <span 
                       className="text-sm text-muted-foreground"
@@ -163,6 +158,11 @@ export default function MemePreview() {
                       Uploaded {formatDate(meme.createdAt)}
                     </span>
                   </div>
+                  <DownloadButton
+                    imageUrl={meme.imageUrl || ''}
+                    filename={createSafeFilename(meme.title)}
+                    data-testid={`button-preview-download-${meme.id}`}
+                  />
                 </div>
               </div>
             </div>
