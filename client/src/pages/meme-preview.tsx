@@ -1,5 +1,6 @@
 import { useLocation, useRoute, Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { ArrowLeft, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +13,11 @@ import { type Meme } from "@shared/schema";
 export default function MemePreview() {
   const [, params] = useRoute("/meme/:id");
   const memeId = params?.id;
+
+  // Scroll to top when meme changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [memeId]);
 
   // Fetch specific meme
   const { data: meme, isLoading: memeLoading, error: memeError } = useQuery<Meme>({
