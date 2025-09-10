@@ -54,19 +54,20 @@ export default function MemeGrid({ searchQuery = "" }: MemeGridProps) {
   if (isLoading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 auto-rows-fr">
           {Array.from({ length: 10 }).map((_, i) => (
-            <div key={i} className="space-y-3">
-              <Skeleton className="aspect-square w-full rounded-lg bg-muted" />
-              <div className="space-y-2 p-2">
+            <div key={i} className="flex flex-col space-y-3">
+              <Skeleton className="aspect-square w-full rounded-lg bg-muted flex-shrink-0" />
+              <div className="space-y-2 p-2 flex-grow">
                 <Skeleton className="h-4 w-3/4 bg-muted" />
                 <div className="flex gap-2">
                   <Skeleton className="h-6 w-12 rounded-full bg-muted" />
                   <Skeleton className="h-6 w-16 rounded-full bg-muted" />
                 </div>
+                <Skeleton className="h-10 w-full bg-muted rounded-md mt-auto" />
               </div>
             </div>
-          ))}
+          ))
         </div>
       </div>
     );
@@ -104,11 +105,13 @@ export default function MemeGrid({ searchQuery = "" }: MemeGridProps) {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Grid Container with responsive columns */}
       <div 
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 md:gap-6 auto-rows-fr"
         data-testid="meme-grid"
       >
         {memes.map((meme, idx) => (
-          <MemeCard key={meme.id || idx} meme={meme} />
+          <div key={meme.id || idx} className="flex">
+            <MemeCard meme={meme} />
+          </div>
         ))}
       </div>
 

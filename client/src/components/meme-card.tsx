@@ -144,10 +144,10 @@ export default function MemeCard({ meme }: MemeCardProps) {
   };
 
   return (
-    <Card className="bg-card rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-border">
-      <div className="relative aspect-square overflow-hidden">
+    <Card className="bg-card rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-border flex flex-col h-full">
+      <div className="relative aspect-square overflow-hidden flex-shrink-0">
         <Link href={`/meme/${meme.id}`} data-testid={`link-preview-${meme.id}`}>
-          <div className="cursor-pointer">
+          <div className="cursor-pointer w-full h-full">
             <img
               src={meme.imageUrl}
               alt={meme.title}
@@ -207,7 +207,7 @@ export default function MemeCard({ meme }: MemeCardProps) {
         )}
       </div>
       
-      <div className="p-4">
+      <div className="p-4 flex flex-col flex-grow">
         {/* Title - Editable for admins */}
         {isEditing ? (
           <div className="space-y-2 mb-3">
@@ -282,18 +282,22 @@ export default function MemeCard({ meme }: MemeCardProps) {
           </>
         )}
         
-        <div className="flex items-center justify-between text-xs text-muted-foreground mb-3">
-          <span data-testid={`text-date-${meme.id}`}>
-            {formatDate(new Date(meme.createdAt))}
-          </span>
-        </div>
+        <div className="flex-grow" />
         
-        {/* Download button at bottom */}
-        <DownloadButton
-          imageUrl={meme.imageUrl}
-          filename={`${meme.title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`}
-          data-testid={`button-download-${meme.id}`}
-        />
+        <div className="mt-auto space-y-3">
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <span data-testid={`text-date-${meme.id}`}>
+              {formatDate(new Date(meme.createdAt))}
+            </span>
+          </div>
+          
+          {/* Download button fixed at bottom */}
+          <DownloadButton
+            imageUrl={meme.imageUrl}
+            filename={`${meme.title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`}
+            data-testid={`button-download-${meme.id}`}
+          />
+        </div>
       </div>
     </Card>
   );
