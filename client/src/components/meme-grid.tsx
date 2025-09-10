@@ -67,7 +67,7 @@ export default function MemeGrid({ searchQuery = "" }: MemeGridProps) {
                 <Skeleton className="h-10 w-full bg-muted rounded-md mt-auto" />
               </div>
             </div>
-          ))
+          ))}
         </div>
       </div>
     );
