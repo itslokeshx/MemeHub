@@ -70,13 +70,15 @@ export default function DownloadButton({
    */
   const downloadFromUrl = async (url: string, downloadFilename: string): Promise<void> => {
     try {
-      // Convert Cloudinary URL to use fl_attachment for automatic download
+      // Convert Cloudinary URL to use fl_attachment with custom filename
       let downloadUrl = url;
       
-      // If it's a Cloudinary URL, add fl_attachment transformation
+      // If it's a Cloudinary URL, add fl_attachment transformation with filename
       if (url.includes('cloudinary.com') && url.includes('/upload/')) {
-        // Insert fl_attachment before the version number
-        downloadUrl = url.replace('/upload/', '/upload/fl_attachment/');
+        // Insert fl_attachment with filename before the version number
+        // This ensures the browser respects the filename
+        const cleanFilename = downloadFilename.replace(/[^a-zA-Z0-9\-_.]/g, '_');
+        downloadUrl = url.replace('/upload/', `/upload/fl_attachment:${cleanFilename}/`);
       }
       
       // Create simple download link - works in mobile WebView

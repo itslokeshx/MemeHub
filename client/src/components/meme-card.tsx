@@ -144,14 +144,14 @@ export default function MemeCard({ meme }: MemeCardProps) {
   };
 
   return (
-    <Card className="bg-card rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 group border-border flex flex-col h-full">
+    <Card className="bg-card rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group border-border flex flex-col h-full">
       <div className="relative aspect-square overflow-hidden flex-shrink-0">
         <Link href={`/meme/${meme.id}`} data-testid={`link-preview-${meme.id}`}>
           <div className="cursor-pointer w-full h-full">
             <img
               src={meme.imageUrl}
               alt={meme.title}
-              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              className="w-full h-full object-cover"
               loading="lazy"
               data-testid={`img-meme-${meme.id}`}
             />
@@ -294,7 +294,7 @@ export default function MemeCard({ meme }: MemeCardProps) {
           {/* Download button fixed at bottom */}
           <DownloadButton
             imageUrl={meme.imageUrl}
-            filename={`${meme.title.replace(/[^a-zA-Z0-9]/g, '_')}.jpg`}
+            filename={`${meme.title.replace(/[^a-zA-Z0-9\s]/g, '_').trim()}.jpg`}
             data-testid={`button-download-${meme.id}`}
           />
         </div>
