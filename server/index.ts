@@ -3,6 +3,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { storage } from "./storage";
+import { startKeepAlive } from "./keep-alive";
 
 const app = express();
 app.use(express.json());
@@ -79,5 +80,8 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+
+    // Start keep-alive service to prevent Render from sleeping
+    startKeepAlive();
   });
 })();
