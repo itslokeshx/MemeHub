@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { Eye, Edit2, Trash2, Save, X } from "lucide-react";
+import { Eye, Edit2, Trash2, Save, X, Star, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -8,12 +8,16 @@ import { Input } from "@/components/ui/input";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { type Meme } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import DownloadButton from "./download-button";
 
 interface MemeCardProps {
-  meme: Meme;
+  meme: Meme & {
+    editedByUsers?: number;
+    isLocked?: boolean;
+    isFeatured?: boolean;
+  };
 }
 
 export default function MemeCard({ meme }: MemeCardProps) {
@@ -21,13 +25,14 @@ export default function MemeCard({ meme }: MemeCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(meme.title);
   const [editTags, setEditTags] = useState(meme.tags.join(", "));
-  
+
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
   // Only show admin controls if on /admin-dashboard and isAdmin is true
   const isAdmin = typeof window !== "undefined" && localStorage.getItem("isAdmin") === "true";
   const showAdminControls = isAdmin && location === "/admin-dashboard";
+  const showUserEdit = !showAdminControls; // Show edit button for regular users
 
   // Handle card click to navigate to preview
   const handleCardClick = (e: React.MouseEvent) => {
@@ -39,13 +44,43 @@ export default function MemeCard({ meme }: MemeCardProps) {
     navigate(`/meme/${meme.id}`);
   };
 
-  // Update meme mutation
-  const updateMutation = useMutation({
+  // User edit mutation (uses /api/memes/:id/edit)
+  const userEditMutation = useMutation({
+    mutationFn: async (updates: { name: string; tags: string[] }) => {
+      const response = await fetch(`/api/memes/${meme.id}/edit`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(error.message || "Failed to edit meme");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Meme updated",
+        description: "Thank you for your contribution!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/memes"] });
+      setIsEditing(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Admin update mutation (uses /api/memes/:id/rename)
+  const adminUpdateMutation = useMutation({
     mutationFn: async (updates: { title: string; tags: string[] }) => {
       const formData = new FormData();
       formData.append("title", updates.title);
       formData.append("tags", updates.tags.join(","));
-      // PATCH to /api/memes/:id/rename
       const response = await fetch(`/api/memes/${meme.id}/rename`, {
         method: "PATCH",
         body: formData,
@@ -65,20 +100,11 @@ export default function MemeCard({ meme }: MemeCardProps) {
       setIsEditing(false);
     },
     onError: (error: Error) => {
-      if (error.message.includes('404')) {
-        toast({
-          title: "Meme not found",
-          description: "This meme no longer exists. Refreshing list...",
-          variant: "destructive",
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/memes"] });
-      } else {
-        toast({
-          title: "Update failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Update failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -96,20 +122,11 @@ export default function MemeCard({ meme }: MemeCardProps) {
       queryClient.invalidateQueries({ queryKey: ["/api/memes"] });
     },
     onError: (error: Error) => {
-      if (error.message.includes('404')) {
-        toast({
-          title: "Meme not found",
-          description: "This meme was already deleted. Refreshing list...",
-          variant: "destructive",
-        });
-        queryClient.invalidateQueries({ queryKey: ["/api/memes"] });
-      } else {
-        toast({
-          title: "Delete failed",
-          description: error.message,
-          variant: "destructive",
-        });
-      }
+      toast({
+        title: "Delete failed",
+        description: error.message,
+        variant: "destructive",
+      });
     },
   });
 
@@ -128,7 +145,11 @@ export default function MemeCard({ meme }: MemeCardProps) {
       .map(tag => tag.trim())
       .filter(tag => tag.length > 0);
 
-    updateMutation.mutate({ title: editTitle.trim(), tags });
+    if (showAdminControls) {
+      adminUpdateMutation.mutate({ title: editTitle.trim(), tags });
+    } else {
+      userEditMutation.mutate({ name: editTitle.trim(), tags });
+    }
   };
 
   const handleCancelEdit = () => {
@@ -146,14 +167,16 @@ export default function MemeCard({ meme }: MemeCardProps) {
     if (diffHours < 1) return "Just now";
     if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? "s" : ""} ago`;
     if (diffDays < 7) return `${diffDays} day${diffDays > 1 ? "s" : ""} ago`;
-    return new Intl.DateTimeFormat("en-US", { 
-      month: "short", 
-      day: "numeric" 
+    return new Intl.DateTimeFormat("en-US", {
+      month: "short",
+      day: "numeric"
     }).format(date);
   };
 
+  const isPending = userEditMutation.isPending || adminUpdateMutation.isPending;
+
   return (
-    <Card 
+    <Card
       className="bg-card rounded-lg overflow-hidden shadow-lg hover:shadow-xl transition-shadow duration-300 group border-border flex flex-col h-full cursor-pointer"
       onClick={handleCardClick}
       data-testid={`card-meme-${meme.id}`}
@@ -167,7 +190,41 @@ export default function MemeCard({ meme }: MemeCardProps) {
           data-testid={`img-meme-${meme.id}`}
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300" />
-        
+
+        {/* Featured and Locked badges */}
+        <div className="absolute top-2 left-2 flex flex-col gap-1">
+          {meme.isFeatured && (
+            <Badge className="bg-yellow-500 text-white flex items-center gap-1">
+              <Star className="w-3 h-3" />
+              Featured
+            </Badge>
+          )}
+          {meme.isLocked && (
+            <Badge className="bg-red-500 text-white flex items-center gap-1">
+              <Lock className="w-3 h-3" />
+              Locked
+            </Badge>
+          )}
+        </div>
+
+        {/* Edit button for users (not on admin dashboard) */}
+        {showUserEdit && !meme.isLocked && (
+          <div className="absolute top-2 right-2">
+            <Button
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsEditing(true);
+              }}
+              disabled={isEditing}
+              className="w-8 h-8 bg-black/50 hover:bg-primary text-white rounded-full p-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+              data-testid={`button-edit-${meme.id}`}
+            >
+              <Edit2 size={12} />
+            </Button>
+          </div>
+        )}
+
         {/* Admin controls only on admin dashboard */}
         {showAdminControls && (
           <div className="absolute top-2 right-2 flex flex-col gap-1">
@@ -205,7 +262,7 @@ export default function MemeCard({ meme }: MemeCardProps) {
                   <AlertDialogCancel className="border-border text-foreground hover:bg-muted">
                     Cancel
                   </AlertDialogCancel>
-                  <AlertDialogAction 
+                  <AlertDialogAction
                     onClick={() => deleteMutation.mutate()}
                     disabled={deleteMutation.isPending}
                     className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
@@ -219,9 +276,9 @@ export default function MemeCard({ meme }: MemeCardProps) {
           </div>
         )}
       </div>
-      
+
       <div className="p-4 flex flex-col flex-grow">
-        {/* Title - Editable for admins */}
+        {/* Title - Editable */}
         {isEditing ? (
           <div className="space-y-2 mb-3" onClick={(e) => e.stopPropagation()}>
             <Input
@@ -247,12 +304,12 @@ export default function MemeCard({ meme }: MemeCardProps) {
                   e.stopPropagation();
                   handleSaveEdit();
                 }}
-                disabled={updateMutation.isPending}
+                disabled={isPending}
                 className="flex-1 bg-primary hover:bg-primary/90 text-primary-foreground"
                 data-testid={`button-save-${meme.id}`}
               >
                 <Save size={12} className="mr-1" />
-                {updateMutation.isPending ? "Saving..." : "Save"}
+                {isPending ? "Saving..." : "Save"}
               </Button>
               <Button
                 size="sm"
@@ -261,7 +318,7 @@ export default function MemeCard({ meme }: MemeCardProps) {
                   e.stopPropagation();
                   handleCancelEdit();
                 }}
-                disabled={updateMutation.isPending}
+                disabled={isPending}
                 className="flex-1 border-border text-foreground hover:bg-muted"
                 data-testid={`button-cancel-edit-${meme.id}`}
               >
@@ -272,14 +329,14 @@ export default function MemeCard({ meme }: MemeCardProps) {
           </div>
         ) : (
           <>
-            <h3 
-              className="font-semibold text-foreground mb-2 line-clamp-2" 
+            <h3
+              className="font-semibold text-foreground mb-2 line-clamp-2"
               title={meme.title}
               data-testid={`text-title-${meme.id}`}
             >
               {meme.title}
             </h3>
-            
+
             <div className="flex flex-wrap gap-1 mb-2">
               {meme.tags.slice(0, 3).map((tag, index) => (
                 <Badge
@@ -300,21 +357,24 @@ export default function MemeCard({ meme }: MemeCardProps) {
                 </Badge>
               )}
             </div>
-            
-            {/* Upload time below tags */}
-            <div className="mb-3">
-              <span 
-                className="text-xs text-muted-foreground"
-                data-testid={`text-date-${meme.id}`}
-              >
+
+            {/* Upload time and edit count */}
+            <div className="mb-3 flex items-center justify-between text-xs text-muted-foreground">
+              <span data-testid={`text-date-${meme.id}`}>
                 {formatDate(new Date(meme.createdAt))}
               </span>
+              {meme.editedByUsers !== undefined && meme.editedByUsers > 0 && (
+                <span className="flex items-center gap-1">
+                  <Edit2 className="w-3 h-3" />
+                  {meme.editedByUsers} edit{meme.editedByUsers > 1 ? 's' : ''}
+                </span>
+              )}
             </div>
           </>
         )}
-        
+
         <div className="flex-grow" />
-        
+
         <div className="mt-auto">
           {/* Download button fixed at bottom */}
           <div onClick={(e) => e.stopPropagation()}>
