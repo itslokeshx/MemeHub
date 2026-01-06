@@ -145,22 +145,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin login
   app.post("/api/admin/login", async (req, res) => {
     try {
+      console.log("[LOGIN] Request body:", req.body);
+
       const loginSchema = z.object({
         username: z.string(),
         password: z.string(),
       });
 
       const { username, password } = loginSchema.parse(req.body);
+      console.log("[LOGIN] Parsed credentials - username:", username, "password length:", password?.length);
 
       // Find admin
       const admin = await storage.getAdminByUsername(username);
+      console.log("[LOGIN] Admin found:", admin ? "YES" : "NO");
+
       if (!admin) {
+        console.log("[LOGIN] Admin not found for username:", username);
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
       // Verify password
+      console.log("[LOGIN] Comparing password...");
       const isValid = await comparePassword(password, admin.passwordHash);
+      console.log("[LOGIN] Password valid:", isValid);
+
       if (!isValid) {
+        console.log("[LOGIN] Password mismatch for user:", username);
         return res.status(401).json({ message: "Invalid credentials" });
       }
 
@@ -171,6 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: admin.role,
       });
 
+      console.log("[LOGIN] Login successful for:", username);
       res.json({
         message: "Login successful",
         token,
