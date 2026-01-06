@@ -325,7 +325,7 @@ export class MongoStorage implements IStorage {
   async getEditHistory(id: string): Promise<EditHistoryEntry[]> {
     try {
       const meme = await MemeModel.findOne({ id }).lean();
-      return meme?.editHistory || [];
+      return (meme?.editHistory || []) as EditHistoryEntry[];
     } catch (error) {
       console.error('Error getting edit history:', error);
       return [];

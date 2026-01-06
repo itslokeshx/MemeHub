@@ -6,6 +6,14 @@ import { z } from "zod";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
+import {
+  hashPassword,
+  comparePassword,
+  generateToken,
+  authMiddleware,
+  adminMiddleware,
+  type AuthRequest
+} from "./auth";
 
 /**
  * IMPORTANT: Cloudinary URL handling
@@ -23,8 +31,9 @@ import { CloudinaryStorage } from "multer-storage-cloudinary";
  */
 
 // Extend Express Request to include file property
-interface MulterRequest extends Request {
+interface MulterRequest extends AuthRequest {
   file?: Express.Multer.File;
+  files?: Express.Multer.File[] | { [fieldname: string]: Express.Multer.File[] };
 }
 
 // Configure Cloudinary
@@ -43,7 +52,7 @@ const cloudinaryStorage = new CloudinaryStorage({
   } as any,
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: cloudinaryStorage,
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
@@ -55,12 +64,12 @@ function extractCloudinaryPublicId(imageUrl: string): string | null {
   if (!imageUrl.includes("cloudinary.com")) {
     return null;
   }
-  
+
   const parts = imageUrl.split('/upload/');
   if (parts.length !== 2) {
     throw new Error(`Invalid Cloudinary URL format: ${imageUrl}`);
   }
-  
+
   let publicIdWithExt = parts[1];
   // Remove file extension
   const dotIdx = publicIdWithExt.lastIndexOf('.');
@@ -69,16 +78,126 @@ function extractCloudinaryPublicId(imageUrl: string): string | null {
   }
   // Remove version number if present (starts with 'v' followed by digits)
   publicIdWithExt = publicIdWithExt.replace(/^v\d+\//, '');
-  
+
   // Validate public_id format
   if (!publicIdWithExt || publicIdWithExt.trim() === '') {
     throw new Error(`Invalid public_id extracted from URL: ${imageUrl}`);
   }
-  
+
   return publicIdWithExt;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // ============================================
+  // ADMIN AUTHENTICATION ROUTES
+  // ============================================
+
+  // Admin registration (one-time setup or for creating new admins)
+  app.post("/api/admin/register", async (req, res) => {
+    try {
+      const registerSchema = z.object({
+        username: z.string().min(3, "Username must be at least 3 characters"),
+        password: z.string().min(6, "Password must be at least 6 characters"),
+      });
+
+      const { username, password } = registerSchema.parse(req.body);
+
+      // Check if admin already exists
+      const existingAdmin = await storage.getAdminByUsername(username);
+      if (existingAdmin) {
+        return res.status(400).json({ message: "Admin already exists" });
+      }
+
+      // Hash password and create admin
+      const passwordHash = await hashPassword(password);
+      const admin = await storage.createAdmin(username, passwordHash);
+
+      // Generate JWT token
+      const token = generateToken({
+        userId: admin.id,
+        username: admin.username,
+        role: admin.role,
+      });
+
+      res.status(201).json({
+        message: "Admin created successfully",
+        token,
+        admin: {
+          id: admin.id,
+          username: admin.username,
+          role: admin.role,
+        },
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
+      res.status(500).json({
+        message: "Failed to create admin",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // Admin login
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      const loginSchema = z.object({
+        username: z.string(),
+        password: z.string(),
+      });
+
+      const { username, password } = loginSchema.parse(req.body);
+
+      // Find admin
+      const admin = await storage.getAdminByUsername(username);
+      if (!admin) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Verify password
+      const isValid = await comparePassword(password, admin.passwordHash);
+      if (!isValid) {
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
+
+      // Generate JWT token
+      const token = generateToken({
+        userId: admin.id,
+        username: admin.username,
+        role: admin.role,
+      });
+
+      res.json({
+        message: "Login successful",
+        token,
+        admin: {
+          id: admin.id,
+          username: admin.username,
+          role: admin.role,
+        },
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors,
+        });
+      }
+      res.status(500).json({
+        message: "Login failed",
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  });
+
+  // ============================================
+  // PUBLIC MEME ROUTES
+  // ============================================
+
   // Get all memes with optional search and pagination
   app.get("/api/memes", async (req, res) => {
     try {
@@ -88,11 +207,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         offset: z.string().optional(),
       });
 
-  const { search } = searchSchema.parse(req.query);
-  const result = await storage.getMemes({ search });
-  res.json(result);
+      const { search } = searchSchema.parse(req.query);
+      const result = await storage.getMemes({ search });
+      res.json(result);
     } catch (error) {
-      res.status(400).json({ 
+      res.status(400).json({
         message: "Failed to fetch memes",
         error: error instanceof Error ? error.message : "Unknown error"
       });
@@ -108,7 +227,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.json(meme);
     } catch (error) {
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to fetch meme",
         error: error instanceof Error ? error.message : "Unknown error"
       });
@@ -122,11 +241,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!meme) {
         return res.status(404).json({ message: "Meme not found" });
       }
-      
+
       // Redirect to the Cloudinary URL for direct download
       res.redirect(meme.imageUrl);
     } catch (error) {
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to get meme for download",
         error: error instanceof Error ? error.message : "Unknown error"
       });
@@ -142,7 +261,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const bodySchema = z.object({
         title: z.string().min(1, "Title is required").max(200, "Title too long"),
-        tags: z.string().transform(str => 
+        tags: z.string().transform(str =>
           str.split(",")
             .map(tag => tag.trim())
             .filter(tag => tag.length > 0)
@@ -151,7 +270,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
 
       const { title, tags } = bodySchema.parse(req.body);
-      
+
       const memeData = {
         title,
         tags,
@@ -160,22 +279,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const validatedData = insertMemeSchema.parse(memeData);
       const meme = await storage.createMeme(validatedData);
-      
+
       res.status(201).json(meme);
     } catch (error) {
       // Clean up uploaded file if validation fails
       if (req.file && 'public_id' in req.file) {
         cloudinary.uploader.destroy((req.file as any).public_id).catch(console.error);
       }
-      
+
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: "Validation failed", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors
         });
       }
-      
-      res.status(500).json({ 
+
+      res.status(500).json({
         message: "Failed to upload meme",
         error: error instanceof Error ? error.message : "Unknown error"
       });
@@ -200,7 +319,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`[Cloudinary] Attempting to delete public_id: ${publicId}`);
           const result = await cloudinary.uploader.destroy(publicId);
           console.log(`[Cloudinary] Delete result:`, result);
-          
+
           if (result.result === 'ok') {
             cloudinaryDeleted = true;
             console.log(`[Cloudinary] Successfully deleted public_id: ${publicId}`);
@@ -228,23 +347,192 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error(`[MongoDB] Failed to delete meme with ID: ${req.params.id}`);
         return res.status(500).json({ message: "Failed to delete meme from database" });
       }
-      
+
       console.log(`[MongoDB] Successfully deleted meme with ID: ${req.params.id}`);
-      
+
       // Return success even if Cloudinary deletion failed, but log the issue
       if (!cloudinaryDeleted) {
         console.warn(`[Warning] Meme deleted from database but Cloudinary deletion failed for ID: ${req.params.id}`);
       }
-      
-      res.json({ 
+
+      res.json({
         message: "Meme deleted successfully",
         cloudinaryDeleted,
         mongoDeleted: true
       });
     } catch (error) {
       console.error(`[Delete] Error deleting meme ${req.params.id}:`, error);
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to delete meme",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // ============================================
+  // ADMIN BULK UPLOAD ROUTE
+  // ============================================
+
+  // Bulk upload memes (admin only)
+  app.post("/api/admin/bulk-upload", authMiddleware, adminMiddleware, upload.array("images", 50), async (req: MulterRequest, res) => {
+    try {
+      if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({ message: "No image files provided" });
+      }
+
+      // Create memes with default metadata
+      const memesToCreate = req.files.map(file => ({
+        title: "memename",
+        tags: ["memetag"],
+        imageUrl: file.path, // Cloudinary URL
+      }));
+
+      const memes = await storage.createMemesBulk(memesToCreate);
+
+      res.status(201).json({
+        message: `Successfully uploaded ${memes.length} memes`,
+        count: memes.length,
+        memes,
+      });
+    } catch (error) {
+      // Clean up uploaded files if creation fails
+      if (req.files && Array.isArray(req.files)) {
+        for (const file of req.files) {
+          if ('public_id' in file) {
+            cloudinary.uploader.destroy((file as any).public_id).catch(console.error);
+          }
+        }
+      }
+
+      res.status(500).json({
+        message: "Failed to bulk upload memes",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // ============================================
+  // USER CONTRIBUTION ROUTES
+  // ============================================
+
+  // User edit meme (name and tags only)
+  app.put("/api/memes/:id/edit", async (req, res) => {
+    try {
+      const editSchema = z.object({
+        name: z.string().min(1, "Name is required").max(200, "Name too long"),
+        tags: z.array(z.string()).max(10, "Maximum 10 tags allowed"),
+      });
+
+      const { name, tags } = editSchema.parse(req.body);
+
+      const meme = await storage.getMeme(req.params.id);
+      if (!meme) {
+        return res.status(404).json({ message: "Meme not found" });
+      }
+
+      const updated = await storage.editMeme(req.params.id, name, tags);
+      if (!updated) {
+        return res.status(500).json({ message: "Failed to edit meme" });
+      }
+
+      res.json({
+        message: "Meme updated successfully",
+        meme: updated,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors
+        });
+      }
+      if (error instanceof Error && error.message.includes("locked")) {
+        return res.status(403).json({ message: error.message });
+      }
+      res.status(500).json({
+        message: "Failed to edit meme",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // ============================================
+  // ADMIN MODERATION ROUTES
+  // ============================================
+
+  // Lock/unlock meme (admin only)
+  app.patch("/api/admin/memes/:id/lock", authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const lockSchema = z.object({
+        isLocked: z.boolean(),
+      });
+
+      const { isLocked } = lockSchema.parse(req.body);
+
+      const success = await storage.lockMeme(req.params.id, isLocked);
+      if (!success) {
+        return res.status(404).json({ message: "Meme not found" });
+      }
+
+      res.json({
+        message: `Meme ${isLocked ? 'locked' : 'unlocked'} successfully`,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors
+        });
+      }
+      res.status(500).json({
+        message: "Failed to lock/unlock meme",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Feature/unfeature meme (admin only)
+  app.patch("/api/admin/memes/:id/feature", authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const featureSchema = z.object({
+        isFeatured: z.boolean(),
+      });
+
+      const { isFeatured } = featureSchema.parse(req.body);
+
+      const success = await storage.featureMeme(req.params.id, isFeatured);
+      if (!success) {
+        return res.status(404).json({ message: "Meme not found" });
+      }
+
+      res.json({
+        message: `Meme ${isFeatured ? 'featured' : 'unfeatured'} successfully`,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors
+        });
+      }
+      res.status(500).json({
+        message: "Failed to feature/unfeature meme",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
+    }
+  });
+
+  // Get edit history (admin only)
+  app.get("/api/admin/memes/:id/history", authMiddleware, adminMiddleware, async (req: AuthRequest, res) => {
+    try {
+      const history = await storage.getEditHistory(req.params.id);
+      res.json({
+        memeId: req.params.id,
+        editHistory: history,
+      });
+    } catch (error) {
+      res.status(500).json({
+        message: "Failed to get edit history",
         error: error instanceof Error ? error.message : "Unknown error"
       });
     }
@@ -313,12 +601,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         cloudinary.uploader.destroy((req.file as any).public_id).catch(console.error);
       }
       if (error instanceof z.ZodError) {
-        return res.status(400).json({ 
-          message: "Validation failed", 
-          errors: error.errors 
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: error.errors
         });
       }
-      res.status(500).json({ 
+      res.status(500).json({
         message: "Failed to rename meme",
         error: error instanceof Error ? error.message : "Unknown error"
       });
